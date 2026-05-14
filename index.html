@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Desafio Perda de Peso | 4% Challenge</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="dark-theme">
+    <div id="app">
+        <!-- Auth Section -->
+        <section id="auth-section" class="screen active">
+            <div class="auth-container glass">
+                <div class="auth-header">
+                    <h1 class="gradient-text">Desafio 4%</h1>
+                    <p>Transforme sua saúde com seus colegas</p>
+                </div>
+
+                <div id="login-form" class="auth-form active">
+                    <h2>Entrar</h2>
+                    <div class="input-group">
+                        <label for="login-email">E-mail</label>
+                        <input type="email" id="login-email" placeholder="seu@email.com" required>
+                    </div>
+                    <button id="btn-login" class="btn-primary">Acessar Dashboard</button>
+                    <p class="auth-footer">Não tem conta? <a href="#" id="go-to-register">Cadastre-se</a></p>
+                </div>
+
+                <div id="register-form" class="auth-form">
+                    <h2>Cadastro</h2>
+                    <div class="input-group">
+                        <label for="reg-name">Nome Completo</label>
+                        <input type="text" id="reg-name" placeholder="Como quer ser chamado?" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="reg-email">E-mail</label>
+                        <input type="email" id="reg-email" placeholder="seu@email.com" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="reg-weight">Peso Inicial (kg)</label>
+                        <input type="number" id="reg-weight" step="0.1" placeholder="Ex: 85.5" required>
+                    </div>
+                    <button id="btn-register" class="btn-primary">Começar Desafio</button>
+                    <p class="auth-footer">Já tem conta? <a href="#" id="go-to-login">Fazer Login</a></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Dashboard Section -->
+        <section id="dashboard-section" class="screen">
+            <nav class="navbar glass">
+                <div class="nav-brand">
+                    <i data-lucide="activity" class="brand-icon"></i>
+                    <span class="gradient-text">Desafio 4%</span>
+                </div>
+                <div class="nav-user">
+                    <span id="user-display-name">Carregando...</span>
+                    <button id="btn-logout" class="btn-icon" title="Sair">
+                        <i data-lucide="log-out"></i>
+                    </button>
+                </div>
+            </nav>
+
+            <main class="dashboard-content">
+                <!-- Welcome & Stats -->
+                <header class="dashboard-header">
+                    <div class="welcome-msg">
+                        <h1>Olá, <span id="user-first-name">Usuário</span>! 👋</h1>
+                        <p id="goal-status-msg">Vamos atingir essa meta juntos.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button id="open-entry-modal" class="btn-accent">
+                            <i data-lucide="plus"></i> Novo Peso
+                        </button>
+                    </div>
+                </header>
+
+                <!-- KPI Cards -->
+                <div class="kpi-grid">
+                    <div class="kpi-card glass">
+                        <div class="kpi-icon violet"><i data-lucide="scale"></i></div>
+                        <div class="kpi-info">
+                            <span class="kpi-label">Peso Atual</span>
+                            <h3 id="stat-current-weight">0.0 kg</h3>
+                        </div>
+                    </div>
+                    <div class="kpi-card glass">
+                        <div class="kpi-icon blue"><i data-lucide="target"></i></div>
+                        <div class="kpi-info">
+                            <span class="kpi-label">Meta (-4%)</span>
+                            <h3 id="stat-target-weight">0.0 kg</h3>
+                        </div>
+                    </div>
+                    <div class="kpi-card glass">
+                        <div class="kpi-icon pink"><i data-lucide="trending-down"></i></div>
+                        <div class="kpi-info">
+                            <span class="kpi-label">Faltam</span>
+                            <h3 id="stat-remaining">0.0 kg</h3>
+                        </div>
+                    </div>
+                    <div class="kpi-card glass">
+                        <div class="kpi-icon green"><i data-lucide="award"></i></div>
+                        <div class="kpi-info">
+                            <span class="kpi-label">Progresso</span>
+                            <h3 id="stat-progress-pct">0%</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Section -->
+                <div class="charts-grid">
+                    <div class="chart-container glass">
+                        <div class="chart-header">
+                            <h3>Sua Evolução</h3>
+                            <span class="chart-subtitle">Peso ao longo do tempo</span>
+                        </div>
+                        <canvas id="personalChart"></canvas>
+                    </div>
+                    <div class="chart-container glass">
+                        <div class="chart-header">
+                            <h3>Ranking da Galera</h3>
+                            <span class="chart-subtitle">% de peso perdido</span>
+                        </div>
+                        <canvas id="comparisonChart"></canvas>
+                    </div>
+                </div>
+            </main>
+        </section>
+
+        <!-- Admin Dashboard Section -->
+        <section id="admin-section" class="screen">
+            <nav class="navbar glass">
+                <div class="nav-brand">
+                    <i data-lucide="shield-check" class="brand-icon"></i>
+                    <span class="gradient-text">Admin Panel</span>
+                </div>
+                <div class="nav-user">
+                    <span>Fiscal (Admin)</span>
+                    <button id="btn-logout-admin" class="btn-logout-common btn-icon" title="Sair">
+                        <i data-lucide="log-out"></i>
+                    </button>
+                </div>
+            </nav>
+
+            <main class="dashboard-content">
+                <header class="dashboard-header">
+                    <div class="welcome-msg">
+                        <h1>Painel do Fiscal 🧐</h1>
+                        <p>Gerencie os participantes e monitore o desafio.</p>
+                    </div>
+                </header>
+
+                <div class="admin-table-container glass">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>E-mail</th>
+                                <th>Peso Inicial</th>
+                                <th>Peso Atual</th>
+                                <th>Meta</th>
+                                <th>Progresso</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-users-table-body">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </main>
+        </section>
+
+        <!-- New Entry Modal -->
+        <div id="entry-modal" class="modal-overlay">
+            <div class="modal-content glass">
+                <div class="modal-header">
+                    <h2>Registrar Peso</h2>
+                    <button id="close-modal" class="btn-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p>Qual seu peso hoje?</p>
+                    <div class="input-group">
+                        <input type="number" id="new-weight" step="0.1" placeholder="Ex: 84.2">
+                        <span class="unit">kg</span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="btn-save-weight" class="btn-primary">Salvar Registro</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Edit Modal -->
+        <div id="edit-modal" class="modal-overlay">
+            <div class="modal-content glass">
+                <div class="modal-header">
+                    <h2>Editar Participante</h2>
+                    <button id="close-edit-modal" class="btn-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p>Corrigir Peso Inicial de <strong id="edit-user-name">...</strong>:</p>
+                    <div class="input-group">
+                        <input type="number" id="edit-weight" step="0.1" placeholder="Ex: 85.0">
+                        <span class="unit">kg</span>
+                    </div>
+                    <input type="hidden" id="edit-user-email">
+                </div>
+                <div class="modal-footer">
+                    <button id="btn-update-weight" class="btn-primary">Atualizar Dados</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Success Toast -->
+        <div id="toast" class="toast">
+            <div class="toast-content glass">
+                <i data-lucide="check-circle" class="toast-icon"></i>
+                <span id="toast-msg">Mensagem de sucesso!</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="store.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
