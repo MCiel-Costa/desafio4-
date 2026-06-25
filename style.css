@@ -578,3 +578,15 @@ input:focus {
     border-color: var(--primary);
 }
 
+.modal-content.modal-large {
+    max-width: 600px;
+    width: 90%;
+}
+
+.chart-container-modal {
+    position: relative;
+    width: 100%;
+    height: 300px;
+    margin-top: 1rem;
+}
+

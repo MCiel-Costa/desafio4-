@@ -1,6 +1,7 @@
 let currentUser = null;
 let personalChart = null;
 let comparisonChart = null;
+let modalComparisonChart = null;
 
 // Initialize Lucide Icons
 lucide.createIcons();
@@ -166,7 +167,15 @@ async function renderComparisonChart() {
     const sortedUsers = allUsers.map(u => {
         const lastW = u.history[u.history.length - 1].weight;
         const pctLost = ((u.initialWeight - lastW) / u.initialWeight) * 100;
-        return { name: u.name.split(' ')[0], pctLost: Math.max(0, pctLost) };
+        return { 
+            name: u.name.split(' ')[0], 
+            fullName: u.name,
+            email: u.email,
+            pctLost: Math.max(0, pctLost),
+            history: u.history,
+            initialWeight: u.initialWeight,
+            targetWeight: u.targetWeight
+        };
     }).sort((a, b) => b.pctLost - a.pctLost);
 
     if (comparisonChart) comparisonChart.destroy();
@@ -178,7 +187,7 @@ async function renderComparisonChart() {
             datasets: [{
                 label: '% de Peso Perdido',
                 data: sortedUsers.map(u => u.pctLost),
-                backgroundColor: sortedUsers.map((_, i) => i === 0 ? '#10b981' : '#3b82f6'),
+                backgroundColor: sortedUsers.map(u => u.email === currentUser.email ? '#8b5cf6' : '#3b82f6'),
                 borderRadius: 8
             }]
         },
@@ -195,6 +204,100 @@ async function renderComparisonChart() {
                     ticks: { color: '#94a3b8', callback: v => v + '%' } 
                 },
                 y: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+            },
+            onClick: (event, elements) => {
+                if (elements.length > 0) {
+                    const element = elements[0];
+                    const index = element.index;
+                    const clickedUser = sortedUsers[index];
+                    if (clickedUser.email === currentUser.email) {
+                        // Não comparar consigo mesmo
+                        return;
+                    }
+                    showComparisonModal(clickedUser);
+                }
+            }
+        }
+    });
+}
+
+// Align weigh-in histories chronologically and convert to percentage weight lost
+function getComparisonChartData(userA, userB) {
+    const datesSet = new Set();
+    userA.history.forEach(h => datesSet.add(new Date(h.date).toDateString()));
+    userB.history.forEach(h => datesSet.add(new Date(h.date).toDateString()));
+    
+    const sortedDates = Array.from(datesSet).map(d => new Date(d)).sort((a, b) => a - b);
+    const labels = sortedDates.map(d => `${d.getDate()}/${d.getMonth() + 1}`);
+    
+    const getPctLostOnDate = (user, date) => {
+        let lastWeight = user.initialWeight;
+        for (let entry of user.history) {
+            const entryDate = new Date(entry.date);
+            if (entryDate <= date) {
+                lastWeight = entry.weight;
+            } else {
+                break;
+            }
+        }
+        const pctLost = ((user.initialWeight - lastWeight) / user.initialWeight) * 100;
+        return Math.max(0, pctLost);
+    };
+
+    const dataA = sortedDates.map(date => getPctLostOnDate(userA, date));
+    const dataB = sortedDates.map(date => getPctLostOnDate(userB, date));
+    
+    return { labels, dataA, dataB };
+}
+
+// Show the comparison line chart modal
+function showComparisonModal(clickedUser) {
+    const modal = document.getElementById('comparison-modal');
+    document.getElementById('comparison-modal-title').textContent = `Comparar com ${clickedUser.fullName.split(' ')[0]}`;
+    
+    modal.classList.add('active');
+    
+    const ctx = document.getElementById('modalComparisonChart').getContext('2d');
+    const chartData = getComparisonChartData(currentUser, clickedUser);
+    
+    if (modalComparisonChart) modalComparisonChart.destroy();
+    
+    modalComparisonChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: chartData.labels,
+            datasets: [{
+                label: `Você (${currentUser.name.split(' ')[0]})`,
+                data: chartData.dataA,
+                borderColor: '#8b5cf6',
+                backgroundColor: 'rgba(139, 92, 246, 0.05)',
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: '#8b5cf6',
+                pointRadius: 4
+            }, {
+                label: clickedUser.fullName.split(' ')[0],
+                data: chartData.dataB,
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: '#3b82f6',
+                pointRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: true, labels: { color: '#94a3b8' } }
+            },
+            scales: {
+                y: { 
+                    grid: { color: 'rgba(255,255,255,0.05)' }, 
+                    ticks: { color: '#94a3b8', callback: v => v.toFixed(1) + '%' } 
+                },
+                x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
             }
         }
     });
@@ -498,4 +601,15 @@ reset4PctBtn.addEventListener('click', async () => {
 // Close goal modal on overlay click
 goalModal.addEventListener('click', (e) => {
     if (e.target === goalModal) goalModal.classList.remove('active');
+});
+
+// Comparison Modal Logic
+const comparisonModal = document.getElementById('comparison-modal');
+document.getElementById('close-comparison-modal').addEventListener('click', () => {
+    comparisonModal.classList.remove('active');
+});
+
+// Close comparison modal on overlay click
+comparisonModal.addEventListener('click', (e) => {
+    if (e.target === comparisonModal) comparisonModal.classList.remove('active');
 });
