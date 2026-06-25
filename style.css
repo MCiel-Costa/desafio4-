@@ -249,6 +249,13 @@ input:focus {
     margin-bottom: 1.5rem;
 }
 
+.header-actions {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
 .welcome-msg h1 {
     font-family: var(--font-heading);
     font-size: 2rem;
