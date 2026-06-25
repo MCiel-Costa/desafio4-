@@ -78,6 +78,9 @@
                         <p id="goal-status-msg">Vamos atingir essa meta juntos.</p>
                     </div>
                     <div class="header-actions">
+                        <button id="open-goal-modal" class="btn-secondary">
+                            <i data-lucide="target"></i> Mudar Meta
+                        </button>
                         <button id="open-entry-modal" class="btn-accent">
                             <i data-lucide="plus"></i> Novo Peso
                         </button>
@@ -96,7 +99,7 @@
                     <div class="kpi-card glass">
                         <div class="kpi-icon blue"><i data-lucide="target"></i></div>
                         <div class="kpi-info">
-                            <span class="kpi-label">Meta (-4%)</span>
+                            <span class="kpi-label" id="kpi-target-label">Meta (-4%)</span>
                             <h3 id="stat-target-weight">0.0 kg</h3>
                         </div>
                     </div>
@@ -169,6 +172,7 @@
                                 <th>Peso Atual</th>
                                 <th>Meta</th>
                                 <th>Progresso</th>
+                                <th>Prazo</th>
                                 <th>Ações</th>
                             </tr>
                         </thead>
@@ -196,6 +200,39 @@
                 </div>
                 <div class="modal-footer">
                     <button id="btn-save-weight" class="btn-primary">Salvar Registro</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Change Goal Modal -->
+        <div id="goal-modal" class="modal-overlay">
+            <div class="modal-content glass">
+                <div class="modal-header">
+                    <h2>Mudar Meta</h2>
+                    <button id="close-goal-modal" class="btn-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p class="modal-desc">Defina um novo desafio personalizado. A nova meta começará a valer a partir do seu peso atual.</p>
+                    
+                    <div class="input-group-vertical">
+                        <label for="goal-weight-loss">Quantos kg deseja perder?</label>
+                        <div class="input-with-unit">
+                            <input type="number" id="goal-weight-loss" step="0.1" placeholder="Ex: 1.0" required>
+                            <span class="unit">kg</span>
+                        </div>
+                    </div>
+                    
+                    <div class="input-group-vertical" style="margin-top: 1.25rem;">
+                        <label for="goal-duration">Em quanto tempo?</label>
+                        <div class="input-with-unit">
+                            <input type="number" id="goal-duration" step="1" placeholder="Ex: 15" required>
+                            <span class="unit">dias</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer-vertical">
+                    <button id="btn-save-goal" class="btn-primary">Confirmar Nova Meta</button>
+                    <button id="btn-reset-4pct" class="btn-secondary-full">Voltar para Desafio 4%</button>
                 </div>
             </div>
         </div>

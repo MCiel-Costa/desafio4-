@@ -498,3 +498,76 @@ input:focus {
 .progress-pill.success { background: rgba(16, 185, 129, 0.2); color: #34d399; }
 .progress-pill.pending { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
 
+/* Custom Goal Buttons & Layout */
+.btn-secondary {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 12px 24px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    border-radius: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--primary);
+    transform: scale(1.05);
+}
+
+.input-group-vertical {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+}
+
+.input-group-vertical label {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.input-with-unit {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+}
+
+.modal-desc {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin-bottom: 1.5rem;
+    line-height: 1.5;
+}
+
+.modal-footer-vertical {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+    width: 100%;
+}
+
+.btn-secondary-full {
+    width: 100%;
+    padding: 12px;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    border-radius: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.btn-secondary-full:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-main);
+    border-color: var(--primary);
+}
+

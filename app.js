@@ -5,6 +5,19 @@ let comparisonChart = null;
 // Initialize Lucide Icons
 lucide.createIcons();
 
+// Helper to calculate remaining days until deadline
+function getDaysRemaining(deadlineStr) {
+    if (!deadlineStr) return null;
+    const deadline = new Date(deadlineStr);
+    const today = new Date();
+    // Set deadline to the end of the day, and today to the start of the day
+    deadline.setHours(23, 59, 59, 999);
+    today.setHours(0, 0, 0, 0);
+    const diffTime = deadline - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+}
+
 // DOM Elements
 const screens = {
     auth: document.getElementById('auth-section'),
@@ -39,9 +52,11 @@ async function updateDashboardUI() {
 
     const latestWeight = currentUser.history[currentUser.history.length - 1].weight;
     const remaining = Math.max(0, latestWeight - currentUser.targetWeight).toFixed(1);
-    const lostSoFar = currentUser.initialWeight - latestWeight;
-    const totalToLose = currentUser.initialWeight - currentUser.targetWeight;
-    const progressPct = Math.min(100, Math.max(0, (lostSoFar / totalToLose) * 100)).toFixed(0);
+    const lostSoFar = currentUser.goalStartWeight - latestWeight;
+    const totalToLose = currentUser.goalStartWeight - currentUser.targetWeight;
+    const progressPct = totalToLose > 0 
+        ? Math.min(100, Math.max(0, (lostSoFar / totalToLose) * 100)).toFixed(0)
+        : '0';
 
     // Header
     document.getElementById('user-display-name').textContent = currentUser.name;
@@ -53,13 +68,39 @@ async function updateDashboardUI() {
     document.getElementById('stat-remaining').textContent = `${remaining} kg`;
     document.getElementById('stat-progress-pct').textContent = `${progressPct}%`;
 
-    // Goal Message
+    // Update Target KPI Label
+    const isInitial4Pct = Math.abs(currentUser.targetWeight - (currentUser.initialWeight * 0.96)) < 0.01;
+    const targetLabel = document.getElementById('kpi-target-label');
+    if (targetLabel) {
+        if (isInitial4Pct) {
+            targetLabel.textContent = 'Meta (-4%)';
+        } else {
+            const diffKg = (currentUser.goalStartWeight - currentUser.targetWeight).toFixed(1);
+            targetLabel.textContent = `Meta (-${diffKg} kg)`;
+        }
+    }
+
+    // Goal Message and Deadline
+    const daysRemaining = getDaysRemaining(currentUser.goalDeadline);
+    let deadlineText = '';
+    if (daysRemaining !== null) {
+        if (daysRemaining > 1) {
+            deadlineText = ` • ${daysRemaining} dias restantes`;
+        } else if (daysRemaining === 1) {
+            deadlineText = ` • Último dia!`;
+        } else if (daysRemaining === 0) {
+            deadlineText = ` • Hoje é o prazo limite!`;
+        } else {
+            deadlineText = ` • Prazo encerrado (${Math.abs(daysRemaining)} dias atrás)`;
+        }
+    }
+
     const goalMsg = document.getElementById('goal-status-msg');
     if (latestWeight <= currentUser.targetWeight) {
-        goalMsg.innerHTML = '<span class="success-text">🎉 PARABÉNS! Você atingiu sua meta de 4%!</span>';
+        goalMsg.innerHTML = `<span class="success-text">🎉 PARABÉNS! Você atingiu sua meta!${deadlineText}</span>`;
         goalMsg.style.color = 'var(--success)';
     } else {
-        goalMsg.textContent = 'Vamos atingir essa meta juntos.';
+        goalMsg.textContent = `Vamos atingir essa meta juntos.${deadlineText}`;
         goalMsg.style.color = 'var(--text-muted)';
     }
 
@@ -168,8 +209,26 @@ async function renderAdminDashboard() {
     
     allUsers.forEach(user => {
         const lastW = user.history[user.history.length - 1].weight;
-        const pctLost = ((user.initialWeight - lastW) / user.initialWeight) * 100;
         const isGoalMet = lastW <= user.targetWeight;
+        const lostSoFar = user.goalStartWeight - lastW;
+        const totalToLose = user.goalStartWeight - user.targetWeight;
+        const activeProgressPct = totalToLose > 0 
+            ? Math.min(100, Math.max(0, (lostSoFar / totalToLose) * 100))
+            : 0;
+
+        const daysRemaining = getDaysRemaining(user.goalDeadline);
+        let deadlineCell = 'Sem prazo';
+        if (daysRemaining !== null) {
+            if (daysRemaining > 1) {
+                deadlineCell = `${daysRemaining} dias`;
+            } else if (daysRemaining === 1) {
+                deadlineCell = `Último dia`;
+            } else if (daysRemaining === 0) {
+                deadlineCell = `Hoje`;
+            } else {
+                deadlineCell = `Expirado (${Math.abs(daysRemaining)}d)`;
+            }
+        }
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -179,10 +238,11 @@ async function renderAdminDashboard() {
             <td>${lastW.toFixed(1)} kg</td>
             <td>${user.targetWeight.toFixed(1)} kg</td>
             <td>
-                <span class="progress-pill ${isGoalMet ? 'success' : 'pending'}">
-                    ${pctLost.toFixed(1)}%
+                <span class="progress-pill ${isGoalMet ? 'success' : 'pending'}" title="Progresso da meta ativa">
+                    ${activeProgressPct.toFixed(0)}%
                 </span>
             </td>
+            <td>${deadlineCell}</td>
             <td>
                 <div style="display: flex; gap: 0.5rem;">
                     <button class="btn-icon" onclick="handleEditUser('${user.email}')" title="Editar">
@@ -338,4 +398,86 @@ modal.addEventListener('click', (e) => {
 
 editModal.addEventListener('click', (e) => {
     if (e.target === editModal) editModal.classList.remove('active');
+});
+
+// Goal Modal Logic
+const goalModal = document.getElementById('goal-modal');
+const openGoalModalBtn = document.getElementById('open-goal-modal');
+const closeGoalModalBtn = document.getElementById('close-goal-modal');
+const saveGoalBtn = document.getElementById('btn-save-goal');
+const reset4PctBtn = document.getElementById('btn-reset-4pct');
+
+openGoalModalBtn.addEventListener('click', () => {
+    goalModal.classList.add('active');
+    document.getElementById('goal-weight-loss').value = '';
+    document.getElementById('goal-duration').value = '';
+});
+
+closeGoalModalBtn.addEventListener('click', () => {
+    goalModal.classList.remove('active');
+});
+
+saveGoalBtn.addEventListener('click', async () => {
+    const kgToLose = parseFloat(document.getElementById('goal-weight-loss').value);
+    const durationDays = parseInt(document.getElementById('goal-duration').value);
+
+    if (isNaN(kgToLose) || kgToLose <= 0) {
+        alert('Por favor, insira uma quantidade de peso válida para perder!');
+        return;
+    }
+    if (isNaN(durationDays) || durationDays <= 0) {
+        alert('Por favor, insira um prazo em dias válido!');
+        return;
+    }
+
+    try {
+        const latestWeight = currentUser.history[currentUser.history.length - 1].weight;
+        const newTargetWeight = latestWeight - kgToLose;
+        
+        const deadline = new Date();
+        deadline.setDate(deadline.getDate() + durationDays);
+
+        currentUser = await Store.updateUserGoal(
+            currentUser.email,
+            newTargetWeight,
+            latestWeight,
+            deadline.toISOString()
+        );
+
+        await updateDashboardUI();
+        goalModal.classList.remove('active');
+        showToast('Nova meta configurada com sucesso!');
+    } catch (err) {
+        alert('Erro ao atualizar meta: ' + err.message);
+    }
+});
+
+reset4PctBtn.addEventListener('click', async () => {
+    if (confirm('Tem certeza que deseja redefinir sua meta para o desafio padrão de 4% de perda de peso? Isso começará o prazo de 30 dias a partir de agora.')) {
+        try {
+            const latestWeight = currentUser.history[currentUser.history.length - 1].weight;
+            const newTargetWeight = latestWeight * 0.96;
+            
+            const deadline = new Date();
+            deadline.setDate(deadline.getDate() + 30);
+
+            currentUser = await Store.updateUserGoal(
+                currentUser.email,
+                newTargetWeight,
+                latestWeight,
+                deadline.toISOString()
+            );
+
+            await updateDashboardUI();
+            goalModal.classList.remove('active');
+            showToast('Desafio padrão de 4% redefinido!');
+        } catch (err) {
+            alert('Erro ao resetar meta: ' + err.message);
+        }
+    }
+});
+
+// Close goal modal on overlay click
+goalModal.addEventListener('click', (e) => {
+    if (e.target === goalModal) goalModal.classList.remove('active');
 });

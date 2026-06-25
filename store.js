@@ -9,6 +9,8 @@ const Store = {
 
     async registerUser(name, email, initialWeight) {
         const targetWeight = parseFloat(initialWeight) * 0.96;
+        const deadline = new Date();
+        deadline.setDate(deadline.getDate() + 30);
 
         // 1. Inserir usuário
         const { data: user, error: userError } = await supabaseClient
@@ -17,7 +19,9 @@ const Store = {
                 name, 
                 email, 
                 initial_weight: parseFloat(initialWeight), 
-                target_weight: targetWeight 
+                target_weight: targetWeight,
+                goal_start_weight: parseFloat(initialWeight),
+                goal_deadline: deadline.toISOString()
             }])
             .select()
             .single();
@@ -59,6 +63,8 @@ const Store = {
             email: user.email,
             initialWeight: user.initial_weight,
             targetWeight: user.target_weight,
+            goalStartWeight: user.goal_start_weight !== null && user.goal_start_weight !== undefined ? user.goal_start_weight : user.initial_weight,
+            goalDeadline: user.goal_deadline || null,
             history: (user.weights || []).map(w => ({
                 date: w.recorded_at,
                 weight: w.weight
@@ -96,6 +102,8 @@ const Store = {
             email: user.email,
             initialWeight: user.initial_weight,
             targetWeight: user.target_weight,
+            goalStartWeight: user.goal_start_weight !== null && user.goal_start_weight !== undefined ? user.goal_start_weight : user.initial_weight,
+            goalDeadline: user.goal_deadline || null,
             history: (user.weights || []).map(w => ({
                 date: w.recorded_at,
                 weight: w.weight
@@ -120,7 +128,8 @@ const Store = {
             .from('users')
             .update({ 
                 initial_weight: parseFloat(newWeight),
-                target_weight: targetWeight
+                target_weight: targetWeight,
+                goal_start_weight: parseFloat(newWeight)
             })
             .eq('email', email);
 
@@ -128,6 +137,20 @@ const Store = {
 
         // 2. Opcional: O fiscal pode querer apenas ajustar, mas o histórico permanece.
         // Aqui vamos apenas atualizar o cadastro e a meta.
+    },
+
+    async updateUserGoal(email, targetWeight, goalStartWeight, goalDeadline) {
+        const { error } = await supabaseClient
+            .from('users')
+            .update({
+                target_weight: parseFloat(targetWeight),
+                goal_start_weight: parseFloat(goalStartWeight),
+                goal_deadline: goalDeadline ? new Date(goalDeadline).toISOString() : null
+            })
+            .eq('email', email);
+
+        if (error) throw error;
+        return await this.getUserByEmail(email);
     },
 
     isAdmin(email) {
