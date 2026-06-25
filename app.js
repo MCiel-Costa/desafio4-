@@ -320,6 +320,16 @@ document.getElementById('btn-register').addEventListener('click', async () => {
     }
 });
 
+// Register Enter key listener
+['reg-name', 'reg-email', 'reg-weight'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('btn-register').click();
+        }
+    });
+});
+
 // Login
 document.getElementById('btn-login').addEventListener('click', async () => {
     const email = document.getElementById('login-email').value;
@@ -339,6 +349,14 @@ document.getElementById('btn-login').addEventListener('click', async () => {
         showScreen('dashboard');
     } else {
         alert('Usuário não encontrado!');
+    }
+});
+
+// Login Enter key listener
+document.getElementById('login-email').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('btn-login').click();
     }
 });
 
