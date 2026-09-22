@@ -102,6 +102,20 @@
                     </div>
                 </div>
 
+                <!-- Leader Victory Banner (Exibido quando o usuário está em 1º lugar no ranking) -->
+                <div id="leader-banner" class="leader-banner glass" style="display: none;">
+                    <div class="leader-banner-gif-container">
+                        <img src="https://64.media.tumblr.com/tumblr_lozu4xC9wx1r0rb3wo1_500.gif" alt="Líder do Desafio" class="leader-gif">
+                    </div>
+                    <div class="leader-banner-info">
+                        <h3>🏆 SENSACIONAL! Você está em 1º LUGAR no Ranking! 🔥</h3>
+                        <p id="leader-banner-msg">Você é o participante com a maior porcentagem de peso perdido no desafio!</p>
+                        <div class="leader-banner-stats">
+                            <span class="gold-stat">Líder do Desafio: <strong id="leader-banner-pct">0.0%</strong> de peso perdido</span>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- KPI Cards -->
                 <div class="kpi-grid">
                     <div class="kpi-card glass">
@@ -319,6 +333,20 @@
                             <div class="crying-banner-stats">
                                 <span class="bad-stat">Progresso: <strong id="admin-crying-banner-pct">-0%</strong></span>
                                 <span class="bad-stat-kg">Excesso: <strong id="admin-crying-banner-diff">+0.0 kg</strong></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Admin Leader Victory Banner (Exibido se o participante for o 1º lugar no ranking) -->
+                    <div id="admin-leader-banner" class="leader-banner glass" style="display: none; margin-bottom: 1.5rem;">
+                        <div class="leader-banner-gif-container">
+                            <img src="https://64.media.tumblr.com/tumblr_lozu4xC9wx1r0rb3wo1_500.gif" alt="Líder do Desafio" class="leader-gif">
+                        </div>
+                        <div class="leader-banner-info">
+                            <h3>🏆 LÍDER DO DESAFIO! 1º Lugar no Ranking! 🔥</h3>
+                            <p id="admin-leader-banner-msg">Este participante tem a maior porcentagem de peso perdido!</p>
+                            <div class="leader-banner-stats">
+                                <span class="gold-stat">Líder do Desafio: <strong id="admin-leader-banner-pct">0.0%</strong> de peso perdido</span>
                             </div>
                         </div>
                     </div>

@@ -49,6 +49,32 @@ function toggleAuthForm(formKey) {
     forms[formKey].classList.add('active');
 }
 
+// Plugin para desenhar emoticon chorando 😭 ao lado da barra do ranking para participantes com ganho de peso
+const barCryingEmojiPlugin = {
+    id: 'barCryingEmojiPlugin',
+    afterDatasetsDraw(chart) {
+        const { ctx } = chart;
+        const sortedUsers = chart.config.options.sortedUsersRef;
+        if (!sortedUsers) return;
+
+        const meta = chart.getDatasetMeta(0);
+        if (!meta || !meta.data) return;
+
+        meta.data.forEach((bar, index) => {
+            const u = sortedUsers[index];
+            if (u && u.realPctLost < 0) {
+                const { x, y } = bar;
+                ctx.save();
+                ctx.font = '16px "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('😭', x + 8, y);
+                ctx.restore();
+            }
+        });
+    }
+};
+
 // Plugin para desenhar emoticon chorando 😭 nos pontos onde houve ganho de peso em relação ao registro anterior
 const cryingEmoticonPlugin = {
     id: 'cryingEmoticonPlugin',
@@ -132,6 +158,28 @@ async function updateDashboardUI() {
             cryingBanner.style.display = 'flex';
         } else {
             cryingBanner.style.display = 'none';
+        }
+    }
+
+    // Verificar se o usuário é o 1º lugar no ranking (Líder do Desafio)
+    const leaderBanner = document.getElementById('leader-banner');
+    if (leaderBanner) {
+        const allUsers = await Store.getAllUsers();
+        if (allUsers.length > 0) {
+            const sortedUsers = allUsers.map(u => {
+                const lastW = u.history[u.history.length - 1].weight;
+                const realPctLost = ((u.initialWeight - lastW) / u.initialWeight) * 100;
+                return { email: u.email, realPctLost };
+            }).sort((a, b) => b.realPctLost - a.realPctLost);
+
+            if (sortedUsers[0].email === currentUser.email && sortedUsers[0].realPctLost > 0) {
+                document.getElementById('leader-banner-pct').textContent = `${sortedUsers[0].realPctLost.toFixed(1)}%`;
+                leaderBanner.style.display = 'flex';
+            } else {
+                leaderBanner.style.display = 'none';
+            }
+        } else {
+            leaderBanner.style.display = 'none';
         }
     }
 
@@ -227,7 +275,33 @@ function renderPersonalChart() {
         options: {
             responsive: true,
             plugins: {
-                legend: { display: true, labels: { color: '#94a3b8' } }
+                legend: { display: true, labels: { color: '#94a3b8' } },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            if (context.datasetIndex === 1) {
+                                return ` Meta: ${context.parsed.y.toFixed(1)} kg`;
+                            }
+                            const weight = context.parsed.y;
+                            const dataIndex = context.dataIndex;
+                            const history = currentUser.history;
+                            
+                            if (dataIndex > 0) {
+                                const prevWeight = history[dataIndex - 1].weight;
+                                if (weight > prevWeight) {
+                                    const gainedKg = (weight - prevWeight).toFixed(1);
+                                    if (weight > currentUser.initialWeight) {
+                                        const pctFromInitial = (((weight - currentUser.initialWeight) / currentUser.initialWeight) * 100).toFixed(1);
+                                        return ` Peso: ${weight.toFixed(1)} kg (-${pctFromInitial}% do peso inicial | +${gainedKg} kg 😭)`;
+                                    } else {
+                                        return ` Peso: ${weight.toFixed(1)} kg (+${gainedKg} kg da pesagem anterior 😭)`;
+                                    }
+                                }
+                            }
+                            return ` Peso: ${weight.toFixed(1)} kg`;
+                        }
+                    }
+                }
             },
             scales: {
                 y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
@@ -245,43 +319,65 @@ async function renderComparisonChart() {
     const allUsers = await Store.getAllUsers();
     if (allUsers.length === 0) return;
 
-    // Sort users by % lost
+    // Sort users by real % lost (higher lost = top)
     const sortedUsers = allUsers.map(u => {
         const lastW = u.history[u.history.length - 1].weight;
-        const pctLost = ((u.initialWeight - lastW) / u.initialWeight) * 100;
+        const realPctLost = ((u.initialWeight - lastW) / u.initialWeight) * 100;
         return { 
             name: u.name.split(' ')[0], 
             fullName: u.name,
             email: u.email,
-            pctLost: Math.max(0, pctLost),
+            realPctLost: realPctLost,
+            pctLost: Math.abs(realPctLost), // O gráfico cresce normalmente proporcional ao valor % (ex: 4%)
             history: u.history,
             initialWeight: u.initialWeight,
             targetWeight: u.targetWeight
         };
-    }).sort((a, b) => b.pctLost - a.pctLost);
+    }).sort((a, b) => b.realPctLost - a.realPctLost);
 
     if (comparisonChart) comparisonChart.destroy();
 
     comparisonChart = new Chart(canvas.getContext('2d'), {
         type: 'bar',
         data: {
-            labels: sortedUsers.map(u => u.name),
+            labels: sortedUsers.map(u => u.realPctLost < 0 ? `${u.name} 😭` : u.name),
             datasets: [{
                 label: '% de Peso Perdido',
                 data: sortedUsers.map(u => u.pctLost),
-                backgroundColor: sortedUsers.map(u => u.email === currentUser.email ? '#8b5cf6' : '#3b82f6'),
+                backgroundColor: sortedUsers.map(u => {
+                    if (u.realPctLost < 0) return '#f43f5e';
+                    return u.email === currentUser.email ? '#8b5cf6' : '#3b82f6';
+                }),
                 borderRadius: 8
             }]
         },
         options: {
             responsive: true,
             indexAxis: 'y',
+            sortedUsersRef: sortedUsers,
+            layout: {
+                padding: { right: 40 }
+            },
             plugins: {
-                legend: { display: false }
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const u = sortedUsers[context.dataIndex];
+                            if (u.realPctLost < 0) {
+                                const lastW = u.history[u.history.length - 1].weight;
+                                const gainedKg = (lastW - u.initialWeight).toFixed(1);
+                                return ` Progresso: ${u.realPctLost.toFixed(1)}% (+${gainedKg} kg do inicial 😭)`;
+                            }
+                            return ` Peso Perdido: +${u.realPctLost.toFixed(1)}%`;
+                        }
+                    }
+                }
             },
             scales: {
                 x: { 
-                    max: 10,
+                    min: 0,
+                    grace: '10%',
                     grid: { color: 'rgba(255,255,255,0.05)' }, 
                     ticks: { color: '#94a3b8', callback: v => v + '%' } 
                 },
@@ -293,13 +389,13 @@ async function renderComparisonChart() {
                     const index = element.index;
                     const clickedUser = sortedUsers[index];
                     if (clickedUser.email === currentUser.email) {
-                        // Não comparar consigo mesmo
                         return;
                     }
                     showComparisonModal(clickedUser);
                 }
             }
-        }
+        },
+        plugins: [barCryingEmojiPlugin]
     });
 }
 
@@ -455,39 +551,62 @@ async function renderAdminComparisonChart() {
 
     const sortedUsers = allUsers.map(u => {
         const lastW = u.history[u.history.length - 1].weight;
-        const pctLost = ((u.initialWeight - lastW) / u.initialWeight) * 100;
+        const realPctLost = ((u.initialWeight - lastW) / u.initialWeight) * 100;
         return { 
             name: u.name.split(' ')[0], 
             fullName: u.name,
             email: u.email,
-            pctLost: pctLost,
+            realPctLost: realPctLost,
+            pctLost: Math.abs(realPctLost), // O gráfico cresce normalmente proporcional ao valor % (ex: 4%)
             history: u.history,
             initialWeight: u.initialWeight,
             targetWeight: u.targetWeight
         };
-    }).sort((a, b) => b.pctLost - a.pctLost);
+    }).sort((a, b) => b.realPctLost - a.realPctLost);
 
     if (adminComparisonChart) adminComparisonChart.destroy();
 
     adminComparisonChart = new Chart(canvas.getContext('2d'), {
         type: 'bar',
         data: {
-            labels: sortedUsers.map(u => u.name),
+            labels: sortedUsers.map(u => u.realPctLost < 0 ? `${u.name} 😭` : u.name),
             datasets: [{
                 label: '% de Peso Perdido',
                 data: sortedUsers.map(u => u.pctLost),
-                backgroundColor: sortedUsers.map((u, i) => i === 0 ? '#10b981' : '#8b5cf6'),
+                backgroundColor: sortedUsers.map((u, i) => {
+                    if (u.realPctLost < 0) return '#f43f5e';
+                    return i === 0 ? '#10b981' : '#8b5cf6';
+                }),
                 borderRadius: 8
             }]
         },
         options: {
             responsive: true,
             indexAxis: 'y',
+            sortedUsersRef: sortedUsers,
+            layout: {
+                padding: { right: 40 }
+            },
             plugins: {
-                legend: { display: false }
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const u = sortedUsers[context.dataIndex];
+                            if (u.realPctLost < 0) {
+                                const lastW = u.history[u.history.length - 1].weight;
+                                const gainedKg = (lastW - u.initialWeight).toFixed(1);
+                                return ` Progresso: ${u.realPctLost.toFixed(1)}% (+${gainedKg} kg do inicial 😭)`;
+                            }
+                            return ` Peso Perdido: +${u.realPctLost.toFixed(1)}%`;
+                        }
+                    }
+                }
             },
             scales: {
                 x: { 
+                    min: 0,
+                    grace: '10%',
                     grid: { color: 'rgba(255,255,255,0.05)' }, 
                     ticks: { color: '#94a3b8', callback: v => v.toFixed(1) + '%' } 
                 },
@@ -500,7 +619,8 @@ async function renderAdminComparisonChart() {
                     handleViewUserChart(clickedUser.email);
                 }
             }
-        }
+        },
+        plugins: [barCryingEmojiPlugin]
     });
 }
 
@@ -519,8 +639,34 @@ async function handleViewUserChart(email) {
     title.textContent = `Evolução de ${user.name}`;
     subtitle.textContent = `Inicial: ${user.initialWeight.toFixed(1)} kg | Atual: ${lastW.toFixed(1)} kg ${diffText} | Meta: ${user.targetWeight.toFixed(1)} kg`;
 
-    // Exibir GIF do Cartman no modal do fiscal se o participante estiver acima do peso inicial
+    // Verificar se o participante é o 1º lugar no ranking (Líder do Desafio)
+    const adminLeaderBanner = document.getElementById('admin-leader-banner');
     const adminCryingBanner = document.getElementById('admin-crying-banner');
+
+    const allUsers = await Store.getAllUsers();
+    if (allUsers.length > 0) {
+        const sortedUsers = allUsers.map(u => {
+            const lW = u.history[u.history.length - 1].weight;
+            const realPctLost = ((u.initialWeight - lW) / u.initialWeight) * 100;
+            return { email: u.email, realPctLost };
+        }).sort((a, b) => b.realPctLost - a.realPctLost);
+
+        const isLeader = sortedUsers[0].email === user.email && sortedUsers[0].realPctLost > 0;
+
+        if (adminLeaderBanner) {
+            if (isLeader) {
+                document.getElementById('admin-leader-banner-pct').textContent = `${sortedUsers[0].realPctLost.toFixed(1)}%`;
+                document.getElementById('admin-leader-banner-msg').textContent = `${user.name.split(' ')[0]} é o líder do desafio com a maior porcentagem de peso perdido!`;
+                adminLeaderBanner.style.display = 'flex';
+            } else {
+                adminLeaderBanner.style.display = 'none';
+            }
+        }
+    } else if (adminLeaderBanner) {
+        adminLeaderBanner.style.display = 'none';
+    }
+
+    // Exibir GIF do Cartman no modal do fiscal se o participante estiver acima do peso inicial
     if (adminCryingBanner) {
         if (lastW > user.initialWeight) {
             const diffKg = (lastW - user.initialWeight).toFixed(1);
@@ -587,7 +733,33 @@ async function handleViewUserChart(email) {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { display: true, labels: { color: '#94a3b8' } }
+                legend: { display: true, labels: { color: '#94a3b8' } },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            if (context.datasetIndex === 1) {
+                                return ` Meta: ${context.parsed.y.toFixed(1)} kg`;
+                            }
+                            const weight = context.parsed.y;
+                            const dataIndex = context.dataIndex;
+                            const history = user.history;
+                            
+                            if (dataIndex > 0) {
+                                const prevWeight = history[dataIndex - 1].weight;
+                                if (weight > prevWeight) {
+                                    const gainedKg = (weight - prevWeight).toFixed(1);
+                                    if (weight > user.initialWeight) {
+                                        const pctFromInitial = (((weight - user.initialWeight) / user.initialWeight) * 100).toFixed(1);
+                                        return ` Peso: ${weight.toFixed(1)} kg (-${pctFromInitial}% do peso inicial | +${gainedKg} kg 😭)`;
+                                    } else {
+                                        return ` Peso: ${weight.toFixed(1)} kg (+${gainedKg} kg da pesagem anterior 😭)`;
+                                    }
+                                }
+                            }
+                            return ` Peso: ${weight.toFixed(1)} kg`;
+                        }
+                    }
+                }
             },
             scales: {
                 y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
