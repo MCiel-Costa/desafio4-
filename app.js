@@ -2,6 +2,8 @@ let currentUser = null;
 let personalChart = null;
 let comparisonChart = null;
 let modalComparisonChart = null;
+let adminComparisonChart = null;
+let adminUserChart = null;
 
 // Initialize Lucide Icons
 lucide.createIcons();
@@ -47,6 +49,35 @@ function toggleAuthForm(formKey) {
     forms[formKey].classList.add('active');
 }
 
+// Plugin para desenhar emoticon chorando 😭 nos pontos onde houve ganho de peso em relação ao registro anterior
+const cryingEmoticonPlugin = {
+    id: 'cryingEmoticonPlugin',
+    afterDatasetsDraw(chart) {
+        const { ctx } = chart;
+        const dataset = chart.data.datasets[0];
+        if (!dataset || !dataset.data) return;
+
+        const meta = chart.getDatasetMeta(0);
+        if (!meta || !meta.data) return;
+
+        meta.data.forEach((point, index) => {
+            if (index > 0) {
+                const prevWeight = dataset.data[index - 1];
+                const currWeight = dataset.data[index];
+                if (typeof prevWeight === 'number' && typeof currWeight === 'number' && currWeight > prevWeight) {
+                    const { x, y } = point;
+                    ctx.save();
+                    ctx.font = '20px "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'bottom';
+                    ctx.fillText('😭', x, y - 8);
+                    ctx.restore();
+                }
+            }
+        });
+    }
+};
+
 // --- UI Updates ---
 async function updateDashboardUI() {
     if (!currentUser) return;
@@ -55,9 +86,16 @@ async function updateDashboardUI() {
     const remaining = Math.max(0, latestWeight - currentUser.targetWeight).toFixed(1);
     const lostSoFar = currentUser.goalStartWeight - latestWeight;
     const totalToLose = currentUser.goalStartWeight - currentUser.targetWeight;
-    const progressPct = totalToLose > 0 
-        ? Math.min(100, Math.max(0, (lostSoFar / totalToLose) * 100)).toFixed(0)
-        : '0';
+    
+    // Cálculo do progresso (permite valor negativo em caso de ganho de peso)
+    let progressPctVal = totalToLose > 0 
+        ? ((lostSoFar / totalToLose) * 100)
+        : 0;
+
+    if (progressPctVal > 0) {
+        progressPctVal = Math.min(100, progressPctVal);
+    }
+    const progressPctStr = progressPctVal.toFixed(0);
 
     // Header
     document.getElementById('user-display-name').textContent = currentUser.name;
@@ -67,7 +105,35 @@ async function updateDashboardUI() {
     document.getElementById('stat-current-weight').textContent = `${latestWeight.toFixed(1)} kg`;
     document.getElementById('stat-target-weight').textContent = `${currentUser.targetWeight.toFixed(1)} kg`;
     document.getElementById('stat-remaining').textContent = `${remaining} kg`;
-    document.getElementById('stat-progress-pct').textContent = `${progressPct}%`;
+    document.getElementById('stat-progress-pct').textContent = `${progressPctStr}%`;
+
+    // Atualizar cor do ícone de progresso (verde se positivo, vermelho se negativo)
+    const progressStatEl = document.getElementById('stat-progress-pct');
+    if (progressStatEl) {
+        const kpiCard = progressStatEl.closest('.kpi-card');
+        if (kpiCard) {
+            const kpiIcon = kpiCard.querySelector('.kpi-icon');
+            if (kpiIcon) {
+                kpiIcon.className = progressPctVal < 0 ? 'kpi-icon red' : 'kpi-icon green';
+            }
+        }
+    }
+
+    // Verificar se o peso atual está acima do peso inicial
+    const cryingBanner = document.getElementById('crying-banner');
+    if (cryingBanner) {
+        if (latestWeight > currentUser.initialWeight) {
+            const diffKg = (latestWeight - currentUser.initialWeight).toFixed(1);
+            const pctAboveInitial = (((latestWeight - currentUser.initialWeight) / currentUser.initialWeight) * 100).toFixed(1);
+            
+            document.getElementById('crying-banner-pct').textContent = `-${pctAboveInitial}%`;
+            document.getElementById('crying-banner-diff').textContent = `+${diffKg} kg`;
+            document.getElementById('crying-banner-msg').textContent = `Você engordou ${diffKg} kg em relação ao seu peso inicial (${currentUser.initialWeight.toFixed(1)} kg).`;
+            cryingBanner.style.display = 'flex';
+        } else {
+            cryingBanner.style.display = 'none';
+        }
+    }
 
     // Update Target KPI Label
     const isInitial4Pct = Math.abs(currentUser.targetWeight - (currentUser.initialWeight * 0.96)) < 0.01;
@@ -119,6 +185,21 @@ function renderPersonalChart() {
     });
     const data = currentUser.history.map(h => h.weight);
 
+    // Destacar pontos onde houve ganho de peso em relação ao registro anterior
+    const pointBackgroundColors = currentUser.history.map((h, i) => {
+        if (i > 0 && h.weight > currentUser.history[i - 1].weight) {
+            return '#f43f5e'; // ponto vermelho para ganho de peso
+        }
+        return '#8b5cf6';
+    });
+
+    const pointRadii = currentUser.history.map((h, i) => {
+        if (i > 0 && h.weight > currentUser.history[i - 1].weight) {
+            return 7;
+        }
+        return 5;
+    });
+
     if (personalChart) personalChart.destroy();
 
     personalChart = new Chart(ctx, {
@@ -132,8 +213,8 @@ function renderPersonalChart() {
                 backgroundColor: 'rgba(139, 92, 246, 0.1)',
                 fill: true,
                 tension: 0.4,
-                pointBackgroundColor: '#8b5cf6',
-                pointRadius: 5
+                pointBackgroundColor: pointBackgroundColors,
+                pointRadius: pointRadii
             }, {
                 label: 'Meta',
                 data: Array(labels.length).fill(currentUser.targetWeight),
@@ -152,7 +233,8 @@ function renderPersonalChart() {
                 y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
                 x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
             }
-        }
+        },
+        plugins: [cryingEmoticonPlugin]
     });
 }
 
@@ -348,6 +430,9 @@ async function renderAdminDashboard() {
             <td>${deadlineCell}</td>
             <td>
                 <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn-icon" onclick="handleViewUserChart('${user.email}')" title="Ver Gráfico de Evolução">
+                        <i data-lucide="line-chart" style="width: 16px;"></i>
+                    </button>
                     <button class="btn-icon" onclick="handleEditUser('${user.email}')" title="Editar">
                         <i data-lucide="edit-2" style="width: 16px;"></i>
                     </button>
@@ -358,6 +443,159 @@ async function renderAdminDashboard() {
         tableBody.appendChild(tr);
     });
     lucide.createIcons();
+    await renderAdminComparisonChart();
+}
+
+async function renderAdminComparisonChart() {
+    const canvas = document.getElementById('adminComparisonChart');
+    if (!canvas) return;
+
+    const allUsers = await Store.getAllUsers();
+    if (allUsers.length === 0) return;
+
+    const sortedUsers = allUsers.map(u => {
+        const lastW = u.history[u.history.length - 1].weight;
+        const pctLost = ((u.initialWeight - lastW) / u.initialWeight) * 100;
+        return { 
+            name: u.name.split(' ')[0], 
+            fullName: u.name,
+            email: u.email,
+            pctLost: pctLost,
+            history: u.history,
+            initialWeight: u.initialWeight,
+            targetWeight: u.targetWeight
+        };
+    }).sort((a, b) => b.pctLost - a.pctLost);
+
+    if (adminComparisonChart) adminComparisonChart.destroy();
+
+    adminComparisonChart = new Chart(canvas.getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: sortedUsers.map(u => u.name),
+            datasets: [{
+                label: '% de Peso Perdido',
+                data: sortedUsers.map(u => u.pctLost),
+                backgroundColor: sortedUsers.map((u, i) => i === 0 ? '#10b981' : '#8b5cf6'),
+                borderRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            indexAxis: 'y',
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                x: { 
+                    grid: { color: 'rgba(255,255,255,0.05)' }, 
+                    ticks: { color: '#94a3b8', callback: v => v.toFixed(1) + '%' } 
+                },
+                y: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+            },
+            onClick: (event, elements) => {
+                if (elements.length > 0) {
+                    const index = elements[0].index;
+                    const clickedUser = sortedUsers[index];
+                    handleViewUserChart(clickedUser.email);
+                }
+            }
+        }
+    });
+}
+
+async function handleViewUserChart(email) {
+    const user = await Store.getUserByEmail(email);
+    if (!user) return;
+
+    const modal = document.getElementById('admin-user-chart-modal');
+    const title = document.getElementById('admin-chart-modal-title');
+    const subtitle = document.getElementById('admin-chart-modal-subtitle');
+    
+    const lastW = user.history[user.history.length - 1].weight;
+    const diffFromInitial = (lastW - user.initialWeight).toFixed(1);
+    const diffText = lastW > user.initialWeight ? `(+${diffFromInitial} kg)` : `(${diffFromInitial} kg)`;
+
+    title.textContent = `Evolução de ${user.name}`;
+    subtitle.textContent = `Inicial: ${user.initialWeight.toFixed(1)} kg | Atual: ${lastW.toFixed(1)} kg ${diffText} | Meta: ${user.targetWeight.toFixed(1)} kg`;
+
+    // Exibir GIF do Cartman no modal do fiscal se o participante estiver acima do peso inicial
+    const adminCryingBanner = document.getElementById('admin-crying-banner');
+    if (adminCryingBanner) {
+        if (lastW > user.initialWeight) {
+            const diffKg = (lastW - user.initialWeight).toFixed(1);
+            const pctAboveInitial = (((lastW - user.initialWeight) / user.initialWeight) * 100).toFixed(1);
+            
+            document.getElementById('admin-crying-banner-pct').textContent = `-${pctAboveInitial}%`;
+            document.getElementById('admin-crying-banner-diff').textContent = `+${diffKg} kg`;
+            document.getElementById('admin-crying-banner-msg').textContent = `${user.name.split(' ')[0]} engordou ${diffKg} kg em relação ao peso inicial (${user.initialWeight.toFixed(1)} kg).`;
+            adminCryingBanner.style.display = 'flex';
+        } else {
+            adminCryingBanner.style.display = 'none';
+        }
+    }
+
+    modal.classList.add('active');
+
+    const ctx = document.getElementById('adminUserChart').getContext('2d');
+    
+    const labels = user.history.map(h => {
+        const d = new Date(h.date);
+        return `${d.getDate()}/${d.getMonth() + 1}`;
+    });
+    const data = user.history.map(h => h.weight);
+
+    const pointBackgroundColors = user.history.map((h, i) => {
+        if (i > 0 && h.weight > user.history[i - 1].weight) {
+            return '#f43f5e';
+        }
+        return '#8b5cf6';
+    });
+
+    const pointRadii = user.history.map((h, i) => {
+        if (i > 0 && h.weight > user.history[i - 1].weight) {
+            return 7;
+        }
+        return 5;
+    });
+
+    if (adminUserChart) adminUserChart.destroy();
+
+    adminUserChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: `Peso de ${user.name.split(' ')[0]} (kg)`,
+                data: data,
+                borderColor: '#8b5cf6',
+                backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: pointBackgroundColors,
+                pointRadius: pointRadii
+            }, {
+                label: 'Meta',
+                data: Array(labels.length).fill(user.targetWeight),
+                borderColor: '#f43f5e',
+                borderDash: [5, 5],
+                fill: false,
+                pointRadius: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: true, labels: { color: '#94a3b8' } }
+            },
+            scales: {
+                y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
+                x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+            }
+        },
+        plugins: [cryingEmoticonPlugin]
+    });
 }
 
 async function handleEditUser(email) {
@@ -380,6 +618,7 @@ async function handleDeleteUser(email) {
 
 window.handleDeleteUser = handleDeleteUser;
 window.handleEditUser = handleEditUser;
+window.handleViewUserChart = handleViewUserChart;
 
 // --- Feedback ---
 function showToast(msg) {
@@ -613,3 +852,17 @@ document.getElementById('close-comparison-modal').addEventListener('click', () =
 comparisonModal.addEventListener('click', (e) => {
     if (e.target === comparisonModal) comparisonModal.classList.remove('active');
 });
+
+// Admin User Chart Modal Logic
+const adminUserChartModal = document.getElementById('admin-user-chart-modal');
+const closeAdminUserChartModalBtn = document.getElementById('close-admin-chart-modal');
+if (closeAdminUserChartModalBtn) {
+    closeAdminUserChartModalBtn.addEventListener('click', () => {
+        adminUserChartModal.classList.remove('active');
+    });
+}
+if (adminUserChartModal) {
+    adminUserChartModal.addEventListener('click', (e) => {
+        if (e.target === adminUserChartModal) adminUserChartModal.classList.remove('active');
+    });
+}

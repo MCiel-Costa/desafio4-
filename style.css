@@ -590,3 +590,78 @@ input:focus {
     margin-top: 1rem;
 }
 
+/* Crying Banner (Weight Gain / Above Initial Weight) */
+.crying-banner {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1.25rem 1.75rem;
+    margin-bottom: 2rem;
+    border: 1px solid rgba(244, 63, 94, 0.4);
+    background: linear-gradient(135deg, rgba(244, 63, 94, 0.15) 0%, rgba(30, 41, 59, 0.85) 100%);
+    box-shadow: 0 8px 32px 0 rgba(244, 63, 94, 0.2);
+    animation: fadeIn 0.4s ease;
+    border-radius: 24px;
+}
+
+.crying-banner-gif-container {
+    flex-shrink: 0;
+    width: 85px;
+    height: 85px;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 2px solid rgba(244, 63, 94, 0.5);
+    box-shadow: 0 4px 15px rgba(244, 63, 94, 0.3);
+}
+
+.cartman-gif {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.crying-banner-info h3 {
+    font-family: var(--font-heading);
+    font-size: 1.25rem;
+    color: #fb7185;
+    margin-bottom: 0.25rem;
+}
+
+.crying-banner-info p {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+
+.crying-banner-stats {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.bad-stat {
+    background: rgba(244, 63, 94, 0.2);
+    color: #f43f5e;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: 1px solid rgba(244, 63, 94, 0.3);
+}
+
+.bad-stat-kg {
+    background: rgba(239, 68, 68, 0.15);
+    color: #fca5a5;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.kpi-icon.red { 
+    background: rgba(244, 63, 94, 0.2); 
+    color: #fb7185; 
+}
+
+
